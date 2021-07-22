@@ -23,13 +23,55 @@ def get_edge_img(
     return edges_img
 
 
+def test_guss(
+    color_img,
+    gaussian_ksize=5,
+    gaussian_sigmax=1,
+):
+    gaussian = cv2.GaussianBlur(
+        color_img, (gaussian_ksize, gaussian_ksize), gaussian_sigmax
+    )
+    return gaussian
+
+
+def get_edge_img_2(
+    bin_img,
+    canny_threshold1=50,
+    canny_threshold2=100,
+):
+    edges_img = cv2.Canny(bin_img, canny_threshold1, canny_threshold2)
+    return edges_img
+
+
+def get_bin_img_1(color_img):
+    """
+    局部自适应阈值二值化
+    """
+    gray_img = cv2.cvtColor(color_img, cv2.COLOR_BGR2GRAY)
+    binary = cv2.adaptiveThreshold(
+        gray_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 25, 10
+    )
+    return binary
+
+
+def get_bin_img_2(image):
+    """
+    全局自适应阈值二值化
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)  # 把输入图像灰度化
+    ret, binary = cv2.threshold(
+        gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_TRIANGLE
+    )  # 直接阈值化是对输入的单通道矩阵逐像素进行阈值分割。
+    return binary
+
+
 def roi_mask(gray_img):
     """
     对gray_img进行掩膜
     :param gray_img: 灰度图,channels=1
     """
-    poly_pts = np.array([[[125, 324], [235, 259], [325, 259], [435, 324]]])
-    # poly_pts = np.array([[[118, 243], [293, 112], [365, 110], [575, 243]]])
+    # poly_pts = np.array([[[125, 324], [235, 259], [325, 259], [435, 324]]]) #视频1
+    poly_pts = np.array([[[118, 243], [293, 112], [365, 110], [575, 243]]])  # 视频2
     mask = np.zeros_like(gray_img)
     mask = cv2.fillPoly(mask, pts=poly_pts, color=255)
     img_mask = cv2.bitwise_and(gray_img, mask)
@@ -112,10 +154,6 @@ def draw_lines(img, lines):
         x = False
         global pre_lines
         left_line, right_line = lines
-        """if calculate_slope(left_line) < 0.26:
-            left_line = pre_lines[0]
-        if calculate_slope(right_line) > -0.26:
-            right_line = pre_lines[1]"""
         # print(left_line)
         # print((left_line[0][1] - left_line[1][1]) / (left_line[0][0] - left_line[1][0]))
         if (
@@ -191,11 +229,40 @@ def do_do_do(color_img):
     return edge_img
 
 
-cap = cv2.VideoCapture("../video2.mp4")
-# cap = cv2.VideoCapture("../video3.mp4")
+def test(color_img):
+    binary_img = get_bin_img_1(color_img)
+    edge_img = get_edge_img_2(binary_img)
+    mask_img_gray = roi_mask(edge_img)
+    lines = get_lines(mask_img_gray)
+    draw_lines(color_img, lines)
+    # return edge_img
+    return color_img
+    return binary_img
+
+
+def test_b_e(color_img):
+    """先边缘再二值化"""
+    img = do_do_do(color_img)
+    binary = cv2.adaptiveThreshold(
+        img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 25, 10
+    )
+    mask_img_gray = roi_mask(binary)
+    lines = get_lines(mask_img_gray)
+    draw_lines(color_img, lines)
+    # return mask_img_gray
+    # return edge_img
+    return color_img
+    return binary
+
+
+# cap = cv2.VideoCapture("../video2.mp4")
+cap = cv2.VideoCapture("../video3.mp4")
 while True:
     ret, frame = cap.read()
-    frame = do_do_do(frame)
+    frame = do_do_do(frame)  # 不进行二值化处理
     # print(frame.shape)
+    # frame = test(frame) # 先进行了二值化处理
+    # frame = test_guss(frame) # 测试高斯
+    # frame = test_b_e(frame)
     cv2.imshow("frame", frame)
     cv2.waitKey(10)
